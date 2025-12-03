@@ -3,35 +3,29 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MindAR Multi-Model Switcher</title>
+  <title>MindAR Interactive</title>
   
-  <!-- 1. 引入 A-Frame 框架 -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  
-  <!-- 2. 引入 A-Frame Extras (這是播放 GLB 動畫必須的套件) -->
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
-  
-  <!-- 3. 引入 MindAR 的 A-Frame 擴充套件 -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
-    /* UI 介面樣式：按鈕層 */
     #ui-layer {
       position: absolute;
-      bottom: 50px; /* 按鈕距離底部的距離 */
+      bottom: 50px;
       left: 0;
       width: 100%;
       height: 60px;
-      z-index: 100; /* 確保按鈕在 AR 畫面之上 */
+      z-index: 100;
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 40px; /* 按鈕之間的間距 */
-      pointer-events: none; /* 讓點擊穿透空白區域 */
+      gap: 40px;
+      pointer-events: none; 
     }
 
     .ar-button {
-      pointer-events: auto; /* 恢復按鈕的可點擊性 */
+      pointer-events: auto; 
       background-color: rgba(30, 30, 30, 0.8);
       color: white;
       border: 2px solid rgba(255, 255, 255, 0.8);
@@ -51,86 +45,125 @@
       transform: scale(0.95);
     }
 
-    /* 雙重保險：強制隱藏 A-Frame 內建的 VR 按鈕 */
     .a-enter-vr-button {
       display: none !important;
     }
   </style>
 
   <script>
-    document.addEventListener("DOMContentLoaded", function() {
-      // 取得所有的模型實體
-      const models = document.querySelectorAll('.model-entity');
-      let currentIndex = 0; // 當前顯示的模型索引 (0 ~ 3)
+    // === 1. 自定義旋轉元件 ===
+    // 這個元件會監聽螢幕滑動，並旋轉「目前可見」的模型
+    AFRAME.registerComponent('gesture-handler', {
+      init: function () {
+        this.isDragging = false;
+        this.previousX = 0;
 
-      // 更新模型顯示狀態的函數
+        // 綁定事件到整個場景 (Scene)
+        this.el.sceneEl.addEventListener('mousedown', this.onDown.bind(this));
+        this.el.sceneEl.addEventListener('mousemove', this.onMove.bind(this));
+        this.el.sceneEl.addEventListener('mouseup', this.onUp.bind(this));
+        
+        // 手機觸控事件
+        this.el.sceneEl.addEventListener('touchstart', this.onDown.bind(this));
+        this.el.sceneEl.addEventListener('touchmove', this.onMove.bind(this));
+        this.el.sceneEl.addEventListener('touchend', this.onUp.bind(this));
+      },
+
+      onDown: function(evt) {
+        // 判斷是滑鼠還是手指，並記錄起始 X 座標
+        this.isDragging = true;
+        this.previousX = evt.clientX || evt.touches[0].clientX;
+      },
+
+      onMove: function(evt) {
+        if (!this.isDragging) return;
+
+        // 計算滑動距離
+        let currentX = evt.clientX || evt.touches[0].clientX;
+        let deltaX = currentX - this.previousX;
+        this.previousX = currentX;
+
+        // 找到目前正在顯示的模型 (visible = true)
+        const models = document.querySelectorAll('.model-entity');
+        models.forEach(model => {
+          // 檢查模型是否可見 (A-Frame 屬性檢查)
+          if (model.object3D.visible === true) {
+            let currentRotation = model.object3D.rotation;
+            // 調整旋轉速度 (0.01 是靈敏度，可自行調整)
+            model.object3D.rotation.y += deltaX * 0.01;
+          }
+        });
+      },
+
+      onUp: function() {
+        this.isDragging = false;
+      }
+    });
+
+    // === 2. 模型切換邏輯 (與原本相同) ===
+    document.addEventListener("DOMContentLoaded", function() {
+      const models = document.querySelectorAll('.model-entity');
+      let currentIndex = 0;
+
       const updateVisibility = () => {
         models.forEach((model, index) => {
           if (index === currentIndex) {
-            // 顯示當前模型
             model.setAttribute('visible', 'true');
-            // 加入動畫屬性 (開始播放)
             model.setAttribute('animation-mixer', 'clip: *; loop: repeat; timeScale: 1');
           } else {
-            // 隱藏其他模型
             model.setAttribute('visible', 'false');
-            // 移除動畫屬性 (暫停播放以節省效能)
             model.removeAttribute('animation-mixer');
+            // 切換時，建議重置旋轉角度，不然下一個模型會歪歪的 (看需求決定是否保留這行)
+            // model.object3D.rotation.set(0, 0, 0); 
           }
         });
       };
 
-      // 下一個按鈕事件
       document.getElementById("nextBtn").addEventListener('click', () => {
         currentIndex = (currentIndex + 1) % models.length;
         updateVisibility();
       });
 
-      // 上一個按鈕事件
       document.getElementById("prevBtn").addEventListener('click', () => {
         currentIndex = (currentIndex - 1 + models.length) % models.length;
         updateVisibility();
       });
 
-      // 初始化：確保一開始只有第一個模型顯示且播放動畫
-      // (雖然 HTML 標籤有預設，但 JS 這邊再執行一次確保邏輯一致)
       updateVisibility();
     });
   </script>
 </head>
 
 <body>
-  <!-- UI 按鈕層 -->
   <div id="ui-layer">
     <button id="prevBtn" class="ar-button">← 上一個</button>
     <button id="nextBtn" class="ar-button">下一個 →</button>
   </div>
 
-  <!-- AR 場景 -->
-  <!-- vr-mode-ui="enabled: false" 是隱藏右下角 VR 字樣的關鍵 -->
+  <!-- 
+       這裡加入了 gesture-handler 屬性 
+       這樣整個場景都支援滑動偵測 
+  -->
   <a-scene 
+    gesture-handler 
     mindar-image="imageTargetSrc: ./targets.mind;" 
     color-space="sRGB" 
     renderer="colorManagement: true, physicallyCorrectLights" 
     vr-mode-ui="enabled: false" 
     device-orientation-permission-ui="enabled: false">
 
-    <!-- 資源載入區 -->
     <a-assets>
-      <!-- 請確認你的檔案名稱與這裡一致 -->
       <a-asset-item id="model1" src="./webAR01.glb"></a-asset-item>
       <a-asset-item id="model2" src="./webAR02.glb"></a-asset-item>
       <a-asset-item id="model3" src="./webAR03.glb"></a-asset-item>
       <a-asset-item id="model4" src="./webAR04.glb"></a-asset-item>
     </a-assets>
 
-    <!-- 攝影機 -->
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- 圖像追蹤目標 (targetIndex: 0 對應 targets.mind 中的第一張圖) -->
     <a-entity mindar-image-target="targetIndex: 0">
       
-      <!-- === 模型 1 (預設顯示) === -->
+      <!-- 模型 1 -->
       <a-gltf-model 
         class="model-entity" 
         src="#model1" 
@@ -141,7 +174,7 @@
         rotation="0 270 0">
       </a-gltf-model>
 
-      <!-- === 模型 2 (預設隱藏) === -->
+      <!-- 模型 2 -->
       <a-gltf-model 
         class="model-entity" 
         src="#model2" 
@@ -151,24 +184,24 @@
         rotation="0 270 0">
       </a-gltf-model>
 
-      <!-- === 模型 3 (預設隱藏) === -->
+      <!-- 模型 3 -->
       <a-gltf-model 
         class="model-entity" 
         src="#model3" 
         visible="false" 
         position="0 0 0" 
         scale="0.2 0.2 0.2" 
-        rotation="0 270">
+        rotation="0 270 0">
       </a-gltf-model>
 
-      <!-- === 模型 4 (預設隱藏) === -->
+      <!-- 模型 4 -->
       <a-gltf-model 
         class="model-entity" 
         src="#model4" 
         visible="false" 
         position="0 0 0" 
         scale="0.2 0.2 0.2" 
-        rotation="0 270">
+        rotation="0 270 0">
       </a-gltf-model>
 
     </a-entity>
