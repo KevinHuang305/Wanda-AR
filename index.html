@@ -3,13 +3,62 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MindAR Interactive</title>
+  <title>MindAR Interactive Start Screen</title>
   
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
+    /* === 1. 開始畫面 (說明頁) 樣式 === */
+    #start-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.9); /* 深色背景 */
+      z-index: 999; /* 確保它在最上層 */
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    #start-screen h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    #start-screen p {
+      font-size: 16px;
+      margin-bottom: 40px;
+      line-height: 1.5;
+      max-width: 80%;
+    }
+
+    #start-btn {
+      background-color: #4CAF50; /* 綠色按鈕 */
+      color: white;
+      border: none;
+      padding: 15px 40px;
+      font-size: 18px;
+      font-weight: bold;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      transition: transform 0.2s;
+    }
+
+    #start-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* === 2. 操作介面 (預設先隱藏) === */
     #ui-layer {
       position: absolute;
       bottom: 50px;
@@ -17,7 +66,7 @@
       width: 100%;
       height: 60px;
       z-index: 100;
-      display: flex;
+      display: none; /* <--- 預設隱藏，等按了開始才顯示 */
       justify-content: center;
       align-items: center;
       gap: 40px;
@@ -51,57 +100,57 @@
   </style>
 
   <script>
-    // === 1. 自定義旋轉元件 ===
-    // 這個元件會監聽螢幕滑動，並旋轉「目前可見」的模型
+    // === 自定義旋轉元件 (維持不變) ===
     AFRAME.registerComponent('gesture-handler', {
       init: function () {
         this.isDragging = false;
         this.previousX = 0;
-
-        // 綁定事件到整個場景 (Scene)
         this.el.sceneEl.addEventListener('mousedown', this.onDown.bind(this));
         this.el.sceneEl.addEventListener('mousemove', this.onMove.bind(this));
         this.el.sceneEl.addEventListener('mouseup', this.onUp.bind(this));
-        
-        // 手機觸控事件
         this.el.sceneEl.addEventListener('touchstart', this.onDown.bind(this));
         this.el.sceneEl.addEventListener('touchmove', this.onMove.bind(this));
         this.el.sceneEl.addEventListener('touchend', this.onUp.bind(this));
       },
-
       onDown: function(evt) {
-        // 判斷是滑鼠還是手指，並記錄起始 X 座標
         this.isDragging = true;
         this.previousX = evt.clientX || evt.touches[0].clientX;
       },
-
       onMove: function(evt) {
         if (!this.isDragging) return;
-
-        // 計算滑動距離
         let currentX = evt.clientX || evt.touches[0].clientX;
         let deltaX = currentX - this.previousX;
         this.previousX = currentX;
-
-        // 找到目前正在顯示的模型 (visible = true)
         const models = document.querySelectorAll('.model-entity');
         models.forEach(model => {
-          // 檢查模型是否可見 (A-Frame 屬性檢查)
           if (model.object3D.visible === true) {
-            let currentRotation = model.object3D.rotation;
-            // 調整旋轉速度 (0.01 是靈敏度，可自行調整)
             model.object3D.rotation.y += deltaX * 0.01;
           }
         });
       },
-
       onUp: function() {
         this.isDragging = false;
       }
     });
 
-    // === 2. 模型切換邏輯 (與原本相同) ===
     document.addEventListener("DOMContentLoaded", function() {
+      // === 3. 處理開始按鈕邏輯 ===
+      const startScreen = document.getElementById('start-screen');
+      const startBtn = document.getElementById('start-btn');
+      const uiLayer = document.getElementById('ui-layer');
+      const sceneEl = document.querySelector('a-scene');
+
+      startBtn.addEventListener('click', () => {
+        // A. 隱藏說明頁
+        startScreen.style.display = 'none';
+        // B. 顯示操作按鈕
+        uiLayer.style.display = 'flex';
+        
+        // C. 手動啟動 MindAR (這時才會跳出相機權限請求)
+        sceneEl.systems["mindar-image-system"].start();
+      });
+
+      // === 模型切換邏輯 (維持不變) ===
       const models = document.querySelectorAll('.model-entity');
       let currentIndex = 0;
 
@@ -113,8 +162,6 @@
           } else {
             model.setAttribute('visible', 'false');
             model.removeAttribute('animation-mixer');
-            // 切換時，建議重置旋轉角度，不然下一個模型會歪歪的 (看需求決定是否保留這行)
-            // model.object3D.rotation.set(0, 0, 0); 
           }
         });
       };
@@ -135,18 +182,34 @@
 </head>
 
 <body>
+  <!-- 
+    === 新增：開始畫面 === 
+    這是使用者打開網頁第一個看到的畫面
+  -->
+  <div id="start-screen">
+    <h1>歡迎體驗 血斑天牛生活史AR 展示</h1>
+    <p>
+      按下開始後，請允許相機權限。<br>
+	並請將鏡頭對準告示牌觀賞。<br>
+      <small>(操作說明：左右滑動可旋轉模型)</small>
+    </p>
+    <button id="start-btn">開始體驗 (Start)</button>
+  </div>
+
+  <!-- 操作按鈕層 -->
   <div id="ui-layer">
-    <button id="prevBtn" class="ar-button">← 上一個</button>
-    <button id="nextBtn" class="ar-button">下一個 →</button>
+    <button id="prevBtn" class="ar-button">← 上一階段</button>
+    <button id="nextBtn" class="ar-button">下一階段 →</button>
   </div>
 
   <!-- 
-       這裡加入了 gesture-handler 屬性 
-       這樣整個場景都支援滑動偵測 
+    AR 場景設定：
+    1. mindar-image 屬性增加了 "autoStart: false"
+    2. 這代表網頁載入時，相機不會開啟，等待 JS 呼叫 start()
   -->
   <a-scene 
     gesture-handler 
-    mindar-image="imageTargetSrc: ./targets.mind;" 
+    mindar-image="imageTargetSrc: ./targets.mind; autoStart: false;" 
     color-space="sRGB" 
     renderer="colorManagement: true, physicallyCorrectLights" 
     vr-mode-ui="enabled: false" 
@@ -170,8 +233,8 @@
         visible="true" 
         animation-mixer="clip: *; loop: repeat" 
         position="0 0 0" 
-        scale="0.2 0.2 0.2" 
-        rotation="0 270 0">
+        scale="0.2 0.2 0.2"
+	 rotation="0 270 0">
       </a-gltf-model>
 
       <!-- 模型 2 -->
@@ -180,8 +243,8 @@
         src="#model2" 
         visible="false" 
         position="0 0 0" 
-        scale="0.2 0.2 0.2" 
-        rotation="0 270 0">
+        scale="0.2 0.2 0.2"
+ 	rotation="0 270 0">
       </a-gltf-model>
 
       <!-- 模型 3 -->
@@ -190,8 +253,8 @@
         src="#model3" 
         visible="false" 
         position="0 0 0" 
-        scale="0.2 0.2 0.2" 
-        rotation="0 270 0">
+        scale="0.2 0.2 0.2"
+ 	rotation="0 270 0">
       </a-gltf-model>
 
       <!-- 模型 4 -->
@@ -200,8 +263,8 @@
         src="#model4" 
         visible="false" 
         position="0 0 0" 
-        scale="0.2 0.2 0.2" 
-        rotation="0 270 0">
+        scale="0.2 0.2 0.2"
+	 rotation="0 270 0">
       </a-gltf-model>
 
     </a-entity>
