@@ -51,11 +51,32 @@
       border-radius: 50px;
       cursor: pointer;
       box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-      transition: transform 0.2s;
+      transition: transform 0.2s, opacity 0.3s; /* 增加 opacity 過渡 */
+      opacity: 0.4; /* 預設灰掉 */
+      pointer-events: none; /* 預設不能按 */
     }
 
     #start-btn:active {
       transform: scale(0.95);
+    }
+    
+    #start-btn.enabled {
+      opacity: 1;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    #loading-text {
+      margin-bottom: 15px;
+      font-size: 14px;
+      color: #aaa;
+      animation: blink 1.5s infinite;
+    }
+
+    @keyframes blink {
+      0% { opacity: 0.5; }
+      50% { opacity: 1; }
+      100% { opacity: 0.5; }
     }
 
     /* === 2. 操作介面 (預設先隱藏) === */
@@ -98,93 +119,11 @@
       display: none !important;
     }
   </style>
-
-  <script>
-    // === 自定義旋轉元件 (維持不變) ===
-    AFRAME.registerComponent('gesture-handler', {
-      init: function () {
-        this.isDragging = false;
-        this.previousX = 0;
-        this.el.sceneEl.addEventListener('mousedown', this.onDown.bind(this));
-        this.el.sceneEl.addEventListener('mousemove', this.onMove.bind(this));
-        this.el.sceneEl.addEventListener('mouseup', this.onUp.bind(this));
-        this.el.sceneEl.addEventListener('touchstart', this.onDown.bind(this));
-        this.el.sceneEl.addEventListener('touchmove', this.onMove.bind(this));
-        this.el.sceneEl.addEventListener('touchend', this.onUp.bind(this));
-      },
-      onDown: function(evt) {
-        this.isDragging = true;
-        this.previousX = evt.clientX || evt.touches[0].clientX;
-      },
-      onMove: function(evt) {
-        if (!this.isDragging) return;
-        let currentX = evt.clientX || evt.touches[0].clientX;
-        let deltaX = currentX - this.previousX;
-        this.previousX = currentX;
-        const models = document.querySelectorAll('.model-entity');
-        models.forEach(model => {
-          if (model.object3D.visible === true) {
-            model.object3D.rotation.y += deltaX * 0.01;
-          }
-        });
-      },
-      onUp: function() {
-        this.isDragging = false;
-      }
-    });
-
-    document.addEventListener("DOMContentLoaded", function() {
-      // === 3. 處理開始按鈕邏輯 ===
-      const startScreen = document.getElementById('start-screen');
-      const startBtn = document.getElementById('start-btn');
-      const uiLayer = document.getElementById('ui-layer');
-      const sceneEl = document.querySelector('a-scene');
-
-      startBtn.addEventListener('click', () => {
-        // A. 隱藏說明頁
-        startScreen.style.display = 'none';
-        // B. 顯示操作按鈕
-        uiLayer.style.display = 'flex';
-        
-        // C. 手動啟動 MindAR (這時才會跳出相機權限請求)
-        sceneEl.systems["mindar-image-system"].start();
-      });
-
-      // === 模型切換邏輯 (維持不變) ===
-      const models = document.querySelectorAll('.model-entity');
-      let currentIndex = 0;
-
-      const updateVisibility = () => {
-        models.forEach((model, index) => {
-          if (index === currentIndex) {
-            model.setAttribute('visible', 'true');
-            model.setAttribute('animation-mixer', 'clip: *; loop: repeat; timeScale: 1');
-          } else {
-            model.setAttribute('visible', 'false');
-            model.removeAttribute('animation-mixer');
-          }
-        });
-      };
-
-      document.getElementById("nextBtn").addEventListener('click', () => {
-        currentIndex = (currentIndex + 1) % models.length;
-        updateVisibility();
-      });
-
-      document.getElementById("prevBtn").addEventListener('click', () => {
-        currentIndex = (currentIndex - 1 + models.length) % models.length;
-        updateVisibility();
-      });
-
-      updateVisibility();
-    });
-  </script>
 </head>
 
 <body>
   <!-- 
     === 新增：開始畫面 === 
-    這是使用者打開網頁第一個看到的畫面
   -->
   <div id="start-screen">
     <h1>歡迎體驗 血斑天牛生活史AR 展示</h1>
@@ -193,6 +132,7 @@
       並請將鏡頭對準告示牌觀賞。<br>
       <small>(操作說明：左右滑動可旋轉模型)</small>
     </p>
+    <div id="loading-text">模型載入中，請稍候…</div>
     <button id="start-btn">開始體驗 (Start)</button>
   </div>
 
@@ -203,18 +143,18 @@
   </div>
 
   <!-- 
-    AR 場景設定：
-    1. filterMinCF: 0.0001 -> 減少低速時的抖動 (數值越小越穩，但會有拖影感)
-    2. filterBeta: 0.001  -> 減少高速時的抖動
-    3. missTolerance: 5   -> 丟失識別 5 幀內不隱藏模型 (防閃爍)
-    4. warmupTolerance: 5 -> 剛識別到時等待 5 幀穩定後再顯示
+    AR 場景設定 (已加入抗抖動參數)：
+    filterMinCF: 0.0001 (數值越小越穩，模型會黏在圖片上)
+    filterBeta: 0.001  (平滑移動過渡)
+    missTolerance: 5   (容錯幀數)
+    warmupTolerance: 5 (啟動穩定幀數)
   -->
   <a-scene 
     gesture-handler 
     mindar-image="
       imageTargetSrc: ./targets.mind; 
       autoStart: false; 
-      filterMinCF: 0.0003; 
+      filterMinCF: 0.0001; 
       filterBeta: 0.001; 
       missTolerance: 5; 
       warmupTolerance: 5;
@@ -224,11 +164,12 @@
     vr-mode-ui="enabled: false" 
     device-orientation-permission-ui="enabled: false">
 
-    <a-assets>
-      <a-asset-item id="model1" src="./webAR01.glb"></a-asset-item>
-      <a-asset-item id="model2" src="./webAR02.glb"></a-asset-item>
-      <a-asset-item id="model3" src="./webAR03.glb"></a-asset-item>
-      <a-asset-item id="model4" src="./webAR04.glb"></a-asset-item>
+    <a-assets id="assetLoader">
+      <!-- 注意：這裡沿用你原本的路徑設定 -->
+      <a-asset-item id="model1" src="/webAR01.glb"></a-asset-item>
+      <a-asset-item id="model2" src="/webAR02.glb"></a-asset-item>
+      <a-asset-item id="model3" src="/webAR03.glb"></a-asset-item>
+      <a-asset-item id="model4" src="/webAR04.glb"></a-asset-item>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
@@ -278,5 +219,94 @@
 
     </a-entity>
   </a-scene>
+
+  <script>
+    // === 自定義旋轉元件 ===
+    AFRAME.registerComponent('gesture-handler', {
+      init: function () {
+        this.isDragging = false;
+        this.previousX = 0;
+        this.el.sceneEl.addEventListener('mousedown', this.onDown.bind(this));
+        this.el.sceneEl.addEventListener('mousemove', this.onMove.bind(this));
+        this.el.sceneEl.addEventListener('mouseup', this.onUp.bind(this));
+        this.el.sceneEl.addEventListener('touchstart', this.onDown.bind(this));
+        this.el.sceneEl.addEventListener('touchmove', this.onMove.bind(this));
+        this.el.sceneEl.addEventListener('touchend', this.onUp.bind(this));
+      },
+      onDown: function(evt) {
+        this.isDragging = true;
+        this.previousX = evt.clientX || evt.touches[0].clientX;
+      },
+      onMove: function(evt) {
+        if (!this.isDragging) return;
+        let currentX = evt.clientX || evt.touches[0].clientX;
+        let deltaX = currentX - this.previousX;
+        this.previousX = currentX;
+        const models = document.querySelectorAll('.model-entity');
+        models.forEach(model => {
+          if (model.object3D.visible === true) {
+            model.object3D.rotation.y += deltaX * 0.01;
+          }
+        });
+      },
+      onUp: function() {
+        this.isDragging = false;
+      }
+    });
+
+    document.addEventListener("DOMContentLoaded", function() {
+      // === 變數宣告 ===
+      const startScreen = document.getElementById('start-screen');
+      const startBtn = document.getElementById('start-btn');
+      const uiLayer = document.getElementById('ui-layer');
+      const sceneEl = document.querySelector('a-scene');
+      const loadingText = document.getElementById('loading-text');
+      const assets = document.querySelector('#assetLoader');
+
+      // === 開始按鈕事件 ===
+      startBtn.addEventListener('click', () => {
+        startScreen.style.display = 'none';
+        uiLayer.style.display = 'flex';
+        sceneEl.systems["mindar-image-system"].start();
+      });
+
+      // === 模型切換邏輯 ===
+      const models = document.querySelectorAll('.model-entity');
+      let currentIndex = 0;
+
+      const updateVisibility = () => {
+        models.forEach((model, index) => {
+          if (index === currentIndex) {
+            model.setAttribute('visible', 'true');
+            model.setAttribute('animation-mixer', 'clip: *; loop: repeat; timeScale: 1');
+          } else {
+            model.setAttribute('visible', 'false');
+            model.removeAttribute('animation-mixer');
+          }
+        });
+      };
+
+      document.getElementById("nextBtn").addEventListener('click', () => {
+        currentIndex = (currentIndex + 1) % models.length;
+        updateVisibility();
+      });
+
+      document.getElementById("prevBtn").addEventListener('click', () => {
+        currentIndex = (currentIndex - 1 + models.length) % models.length;
+        updateVisibility();
+      });
+      
+      // === 資源載入監聽 ===
+      // 當所有 GLB 都載入完成後，啟用開始按鈕
+      assets.addEventListener("loaded", () => {
+        console.log("All assets loaded!");
+        loadingText.style.display = "none";
+        startBtn.classList.add("enabled");
+      });
+
+      // 初始化模型顯示
+      updateVisibility();
+    });
+  </script>
 </body>
 </html>
