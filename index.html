@@ -17,8 +17,8 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background-color: rgba(0, 0, 0, 0.9);
-      z-index: 999;
+      background-color: rgba(0, 0, 0, 0.9); /* 深色背景 */
+      z-index: 999; /* 確保它在最上層 */
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -27,22 +27,22 @@
       text-align: center;
       padding: 20px;
       box-sizing: border-box;
-      overflow-y: auto;
+      overflow-y: auto; /* 防止小螢幕內容被切掉 */
     }
 
     #start-screen h1 {
       font-size: 24px;
-      margin-bottom: 10px;
+      margin-bottom: 20px;
     }
 
     #start-screen p {
       font-size: 16px;
-      margin-bottom: 20px;
+      margin-bottom: 30px;
       line-height: 1.5;
-      max-width: 90%;
+      max-width: 80%;
     }
 
-    /* === 影片按鈕容器 === */
+    /* === 新增：影片按鈕容器與樣式 === */
     .video-btn-container {
       display: flex;
       gap: 15px;
@@ -51,9 +51,8 @@
       justify-content: center;
     }
 
-    /* === 影片按鈕樣式 === */
     .video-btn {
-      background-color: #2196F3;
+      background-color: #2196F3; /* 藍色 */
       color: white;
       border: 1px solid rgba(255,255,255,0.3);
       padding: 10px 20px;
@@ -73,9 +72,9 @@
       font-size: 10px;
     }
 
-    /* === 開始按鈕 === */
+    /* === 開始按鈕樣式 === */
     #start-btn {
-      background-color: #4CAF50;
+      background-color: #4CAF50; /* 綠色按鈕 */
       color: white;
       border: none;
       padding: 15px 40px;
@@ -85,9 +84,8 @@
       cursor: pointer;
       box-shadow: 0 4px 10px rgba(0,0,0,0.3);
       transition: transform 0.2s, opacity 0.3s;
-      opacity: 0.4;
-      pointer-events: none;
-      margin-top: 10px;
+      opacity: 0.4;/* 預設灰掉 */
+      pointer-events: none;/* 預設不能按 */
     }
 
     #start-btn:active {
@@ -97,7 +95,6 @@
     #start-btn.enabled {
       opacity: 1;
       pointer-events: auto;
-      cursor: pointer;
     }
 
     #loading-text {
@@ -115,14 +112,14 @@
 
     /* === 2. 影片彈窗 (Modal) === */
     #video-modal {
-      display: none;
+      display: none; /* 預設隱藏 */
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
       background-color: rgba(0,0,0,0.95);
-      z-index: 1000;
+      z-index: 1000; /* 比 start-screen 更高 */
       justify-content: center;
       align-items: center;
       flex-direction: column;
@@ -141,7 +138,7 @@
     /* 16:9 比例容器 */
     .video-wrapper {
       position: relative;
-      padding-bottom: 56.25%;
+      padding-bottom: 56.25%; /* 16:9 ratio */
       height: 0;
     }
 
@@ -163,11 +160,9 @@
       cursor: pointer;
       font-size: 16px;
     }
-    .close-modal-btn:hover {
-      background-color: rgba(255,255,255,0.2);
-    }
 
-    /* === 3. 操作介面 === */
+
+    /* === 3. 操作介面 (預設先隱藏) === */
     #ui-layer {
       position: absolute;
       bottom: 50px;
@@ -175,7 +170,7 @@
       width: 100%;
       height: 60px;
       z-index: 100;
-      display: none;
+      display: none; /* <--- 預設隱藏，等按了開始才顯示 */
       justify-content: center;
       align-items: center;
       gap: 40px;
@@ -203,17 +198,18 @@
       transform: scale(0.95);
     }
 
-    .a-enter-vr-button { display: none !important; }
+    .a-enter-vr-button {
+      display: none !important;
+    }
   </style>
 </head>
 
 <body>
 
-  <!-- === 影片彈窗 (Modal) === -->
+  <!-- === 新增：影片彈窗結構 === -->
   <div id="video-modal">
     <div class="modal-content">
       <div class="video-wrapper">
-        <!-- 更新 iframe 屬性，加入 web-share 和 strict-origin -->
         <iframe 
           id="youtube-frame" 
           src="" 
@@ -232,10 +228,12 @@
   <div id="start-screen">
     <h1>歡迎體驗 血斑天牛生活史AR 展示</h1>
     <p>
-      在開始體驗之前，您可以先觀看相關 CT 影像。<br>
-      按下開始後，請將鏡頭對準告示牌觀賞。
+      按下開始後，請允許相機權限。<br>
+      並請將鏡頭對準告示牌觀賞。<br>
+      <small>(操作說明：左右滑動可旋轉模型)</small>
     </p>
 
+    <!-- 新增：影片按鈕 -->
     <div class="video-btn-container">
       <button class="video-btn" id="btn-video-1">櫻花樹橫切面CT影像</button>
       <button class="video-btn" id="btn-video-2">櫻花樹縱切面CT影像</button>
@@ -251,12 +249,16 @@
     <button id="nextBtn" class="ar-button">下一階段 →</button>
   </div>
 
-  <!-- AR 場景 -->
+  <!-- 
+    AR 場景設定：
+    1. 加入抗抖動參數 (filterMinCF, filterBeta, missTolerance, warmupTolerance)
+    2. autoStart: false
+  -->
   <a-scene 
     gesture-handler 
     mindar-image="
       imageTargetSrc: ./targets.mind; 
-      autoStart: false; 
+      autoStart: false;
       filterMinCF: 0.0001; 
       filterBeta: 0.001; 
       missTolerance: 5; 
@@ -277,10 +279,48 @@
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-entity mindar-image-target="targetIndex: 0">
-      <a-gltf-model class="model-entity" src="#model1" visible="true" animation-mixer="clip: *; loop: repeat" position="0 0 0" scale="0.2 0.2 0.2" rotation="0 270 0"></a-gltf-model>
-      <a-gltf-model class="model-entity" src="#model2" visible="false" position="0 0 0" scale="0.2 0.2 0.2" rotation="0 270 0"></a-gltf-model>
-      <a-gltf-model class="model-entity" src="#model3" visible="false" position="0 0 0" scale="0.2 0.2 0.2" rotation="0 270 0"></a-gltf-model>
-      <a-gltf-model class="model-entity" src="#model4" visible="false" position="0 0 0" scale="0.2 0.2 0.2" rotation="0 270 0"></a-gltf-model>
+      
+      <!-- 模型 1 -->
+      <a-gltf-model 
+        class="model-entity" 
+        src="#model1" 
+        visible="true" 
+        animation-mixer="clip: *; loop: repeat" 
+        position="0 0 0" 
+        scale="0.2 0.2 0.2"
+        rotation="0 270 0">
+      </a-gltf-model>
+
+      <!-- 模型 2 -->
+      <a-gltf-model 
+        class="model-entity" 
+        src="#model2" 
+        visible="false" 
+        position="0 0 0" 
+        scale="0.2 0.2 0.2"
+        rotation="0 270 0">
+      </a-gltf-model>
+
+      <!-- 模型 3 -->
+      <a-gltf-model 
+        class="model-entity" 
+        src="#model3" 
+        visible="false" 
+        position="0 0 0" 
+        scale="0.2 0.2 0.2"
+        rotation="0 270 0">
+      </a-gltf-model>
+
+      <!-- 模型 4 -->
+      <a-gltf-model 
+        class="model-entity" 
+        src="#model4" 
+        visible="false" 
+        position="0 0 0" 
+        scale="0.2 0.2 0.2"
+        rotation="0 270 0">
+      </a-gltf-model>
+
     </a-entity>
   </a-scene>
 
@@ -289,6 +329,7 @@
     const VIDEO_ID_1 = "FpPFmVOFfU4"; 
     const VIDEO_ID_2 = "clHRpSTvOeA"; 
 
+    // === 自定義旋轉元件 (維持不變) ===
     AFRAME.registerComponent('gesture-handler', {
       init: function () {
         this.isDragging = false;
@@ -322,49 +363,51 @@
     });
 
     document.addEventListener("DOMContentLoaded", function() {
+      // === DOM 元素 ===
       const startScreen = document.getElementById('start-screen');
       const startBtn = document.getElementById('start-btn');
       const uiLayer = document.getElementById('ui-layer');
       const sceneEl = document.querySelector('a-scene');
       const loadingText = document.getElementById('loading-text');
       const assets = document.querySelector('#assetLoader');
-      
+
+      // 影片相關元素
       const modal = document.getElementById('video-modal');
       const iframe = document.getElementById('youtube-frame');
       const closeBtn = document.getElementById('close-modal-btn');
       const btnVideo1 = document.getElementById('btn-video-1');
       const btnVideo2 = document.getElementById('btn-video-2');
 
-      // === 修正後的影片開啟邏輯 ===
+      // === 影片邏輯 (含 Origin 修復) ===
       const openVideo = (videoId) => {
-        // 取得當前網站的 Origin (例如 https://your-site.com 或 http://127.0.0.1:5500)
+        // 取得當前網址來源，解決錯誤 153/150
         const currentOrigin = window.location.origin;
-
-        // 修正點：加入 origin 參數，解決錯誤 153/150
+        // 參數：autoplay=1 (自動播放), mute=1 (靜音), playsinline=1 (手機內嵌播放)
         iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&playsinline=1&rel=0&origin=${currentOrigin}`;
-        
         modal.style.display = 'flex';
       };
 
       const closeVideo = () => {
         modal.style.display = 'none';
-        iframe.src = "";
+        iframe.src = ""; // 清空網址停止播放
       };
 
+      // 綁定按鈕
       btnVideo1.addEventListener('click', () => openVideo(VIDEO_ID_1));
       btnVideo2.addEventListener('click', () => openVideo(VIDEO_ID_2));
       closeBtn.addEventListener('click', closeVideo);
-      
       modal.addEventListener('click', (e) => {
         if(e.target === modal) closeVideo();
       });
 
+      // === 開始體驗按鈕 ===
       startBtn.addEventListener('click', () => {
         startScreen.style.display = 'none';
         uiLayer.style.display = 'flex';
         sceneEl.systems["mindar-image-system"].start();
       });
 
+      // === 模型切換邏輯 (維持不變) ===
       const models = document.querySelectorAll('.model-entity');
       let currentIndex = 0;
 
@@ -390,8 +433,8 @@
         updateVisibility();
       });
       
+      /* === 監看模型載入 === */
       assets.addEventListener("loaded", () => {
-        console.log("All assets loaded!");
         loadingText.style.display = "none";
         startBtn.classList.add("enabled");
       });
