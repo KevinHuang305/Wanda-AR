@@ -235,8 +235,8 @@
 
     <!-- 新增：影片按鈕 -->
     <div class="video-btn-container">
-      <button class="video-btn" id="btn-video-1">櫻花樹橫切面CT影像</button>
-      <button class="video-btn" id="btn-video-2">櫻花樹縱切面CT影像</button>
+      <button class="video-btn" id="btn-video-1">櫻花樹切面CT影像</button>
+
     </div>
 
     <div id="loading-text">模型載入中，請稍候…</div>
@@ -326,8 +326,8 @@
 
   <script>
     // === 設定：影片 ID ===
-    const VIDEO_ID_1 = "FpPFmVOFfU4"; 
-    const VIDEO_ID_2 = "clHRpSTvOeA"; 
+    const VIDEO_ID_1 = "cxbzX9MUziE"; 
+    //const VIDEO_ID_2 = "clHRpSTvOeA"; 
 
     // === 自定義旋轉元件 (維持不變) ===
     AFRAME.registerComponent('gesture-handler', {
@@ -376,7 +376,7 @@
       const iframe = document.getElementById('youtube-frame');
       const closeBtn = document.getElementById('close-modal-btn');
       const btnVideo1 = document.getElementById('btn-video-1');
-      const btnVideo2 = document.getElementById('btn-video-2');
+     // const btnVideo2 = document.getElementById('btn-video-2');
 
       // === 影片邏輯 (含 Origin 修復) ===
       const openVideo = (videoId) => {
@@ -394,7 +394,7 @@
 
       // 綁定按鈕
       btnVideo1.addEventListener('click', () => openVideo(VIDEO_ID_1));
-      btnVideo2.addEventListener('click', () => openVideo(VIDEO_ID_2));
+     // btnVideo2.addEventListener('click', () => openVideo(VIDEO_ID_2));
       closeBtn.addEventListener('click', closeVideo);
       modal.addEventListener('click', (e) => {
         if(e.target === modal) closeVideo();
