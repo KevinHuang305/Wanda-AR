@@ -230,7 +230,7 @@
     <p>
       按下開始後，請允許相機權限。<br>
       並請將鏡頭對準告示牌觀賞。<br>
-      <small>(操作說明：左右滑動可旋轉模型)</small>
+      <small>(操作說明：單指左右滑動可旋轉模型，雙指捏合／張開可縮放模型)</small>
     </p>
 
     <!-- 新增：影片按鈕 -->
@@ -329,36 +329,103 @@
     const VIDEO_ID_1 = "cxbzX9MUziE"; 
     //const VIDEO_ID_2 = "clHRpSTvOeA"; 
 
-    // === 自定義旋轉元件 (維持不變) ===
+    // === 自定義旋轉 + 兩指縮放元件 ===
     AFRAME.registerComponent('gesture-handler', {
       init: function () {
         this.isDragging = false;
         this.previousX = 0;
+
+        // 兩指縮放相關
+        this.isPinching = false;
+        this.previousPinchDistance = 0;
+        // 縮放範圍限制（依照原始 scale 0.2 為基準）
+        this.minScale = 0.05;
+        this.maxScale = 0.8;
+
         this.el.sceneEl.addEventListener('mousedown', this.onDown.bind(this));
         this.el.sceneEl.addEventListener('mousemove', this.onMove.bind(this));
         this.el.sceneEl.addEventListener('mouseup', this.onUp.bind(this));
-        this.el.sceneEl.addEventListener('touchstart', this.onDown.bind(this));
-        this.el.sceneEl.addEventListener('touchmove', this.onMove.bind(this));
-        this.el.sceneEl.addEventListener('touchend', this.onUp.bind(this));
+        this.el.sceneEl.addEventListener('touchstart', this.onTouchStart.bind(this));
+        this.el.sceneEl.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
+        this.el.sceneEl.addEventListener('touchend', this.onTouchEnd.bind(this));
       },
+
+      // 計算兩指距離
+      getPinchDistance: function(touches) {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+      },
+
       onDown: function(evt) {
         this.isDragging = true;
-        this.previousX = evt.clientX || evt.touches[0].clientX;
+        this.previousX = evt.clientX;
       },
+
       onMove: function(evt) {
         if (!this.isDragging) return;
-        let currentX = evt.clientX || evt.touches[0].clientX;
-        let deltaX = currentX - this.previousX;
-        this.previousX = currentX;
-        const models = document.querySelectorAll('.model-entity');
-        models.forEach(model => {
-          if (model.object3D.visible === true) {
-            model.object3D.rotation.y += deltaX * 0.01;
-          }
+        let deltaX = evt.clientX - this.previousX;
+        this.previousX = evt.clientX;
+        document.querySelectorAll('.model-entity').forEach(model => {
+          if (model.object3D.visible) model.object3D.rotation.y += deltaX * 0.01;
         });
       },
+
       onUp: function() {
         this.isDragging = false;
+      },
+
+      onTouchStart: function(evt) {
+        if (evt.touches.length === 1) {
+          // 單指：旋轉
+          this.isPinching = false;
+          this.isDragging = true;
+          this.previousX = evt.touches[0].clientX;
+        } else if (evt.touches.length === 2) {
+          // 兩指：縮放
+          this.isDragging = false;
+          this.isPinching = true;
+          this.previousPinchDistance = this.getPinchDistance(evt.touches);
+        }
+      },
+
+      onTouchMove: function(evt) {
+        if (evt.touches.length === 1 && this.isDragging && !this.isPinching) {
+          // 單指旋轉
+          let currentX = evt.touches[0].clientX;
+          let deltaX = currentX - this.previousX;
+          this.previousX = currentX;
+          document.querySelectorAll('.model-entity').forEach(model => {
+            if (model.object3D.visible) model.object3D.rotation.y += deltaX * 0.01;
+          });
+        } else if (evt.touches.length === 2 && this.isPinching) {
+          // 兩指縮放
+          evt.preventDefault();
+          const currentDistance = this.getPinchDistance(evt.touches);
+          const delta = currentDistance - this.previousPinchDistance;
+          this.previousPinchDistance = currentDistance;
+
+          const scaleFactor = 1 + delta * 0.005;
+          document.querySelectorAll('.model-entity').forEach(model => {
+            if (model.object3D.visible) {
+              const s = model.object3D.scale;
+              const newScale = Math.min(Math.max(s.x * scaleFactor, this.minScale), this.maxScale);
+              model.object3D.scale.set(newScale, newScale, newScale);
+            }
+          });
+        }
+      },
+
+      onTouchEnd: function(evt) {
+        if (evt.touches.length === 0) {
+          this.isDragging = false;
+          this.isPinching = false;
+        } else if (evt.touches.length === 1) {
+          // 從兩指變回一指：切換回旋轉模式
+          this.isPinching = false;
+          this.isDragging = true;
+          this.previousX = evt.touches[0].clientX;
+        }
       }
     });
 
